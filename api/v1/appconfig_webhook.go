@@ -17,15 +17,20 @@ limitations under the License.
 package v1
 
 import (
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+	"sanmuyan.com/app-operator/pkg/util"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // log is for logging in this package.
-var appconfiglog = logf.Log.WithName("appconfig-resource")
+var acLog = logf.Log.WithName("appconfig-resource")
 
 func (r *AppConfig) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
@@ -33,44 +38,56 @@ func (r *AppConfig) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-// TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-
 //+kubebuilder:webhook:path=/mutate-app-sanmuyan-com-v1-appconfig,mutating=true,failurePolicy=fail,sideEffects=None,groups=app.sanmuyan.com,resources=appconfigs,verbs=create;update,versions=v1,name=mappconfig.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Defaulter = &AppConfig{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *AppConfig) Default() {
-	appconfiglog.Info("default", "name", r.Name)
+	acLog.Info("default", "name", r.Name)
 
-	// TODO(user): fill in your defaulting logic.
+	for i := range r.Spec.DeployConfigs {
+		r.Spec.DeployConfigs[i].Name = r.Name + "-" + string(r.Spec.DeployConfigs[i].Type)
+	}
 }
 
-// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 //+kubebuilder:webhook:path=/validate-app-sanmuyan-com-v1-appconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=app.sanmuyan.com,resources=appconfigs,verbs=create;update,versions=v1,name=vappconfig.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Validator = &AppConfig{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *AppConfig) ValidateCreate() (admission.Warnings, error) {
-	appconfiglog.Info("validate create", "name", r.Name)
+	acLog.Info("validate create", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object creation.
 	return nil, nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *AppConfig) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
-	appconfiglog.Info("validate update", "name", r.Name)
+	acLog.Info("validate update", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object update.
+	var errList field.ErrorList
+	if !controllerutil.ContainsFinalizer(r, FinalizerAppConfigs) {
+		if util.GetAnnotation(r, AnnotationProtected) == TureValue {
+			errList = append(errList, field.Invalid(field.NewPath("annotations"), AnnotationProtected, "cannot delete protected resources"))
+			return nil, apierr.NewInvalid(
+				schema.GroupKind{Group: "app.sanmuyan.com", Kind: "AppConfigs"}, r.Name, errList)
+		}
+	}
+
+	for _, dc := range r.Spec.DeployConfigs {
+		if dc.Type != StableDeploy && dc.Type != CanaryDeploy {
+			errList = append(errList, field.Invalid(field.NewPath("spec", "deployConfigs", "type"), dc.Type, "invalid type"))
+			return nil, apierr.NewInvalid(
+				schema.GroupKind{Group: "app.sanmuyan.com", Kind: "AppConfigs"}, r.Name, errList)
+		}
+	}
 	return nil, nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (r *AppConfig) ValidateDelete() (admission.Warnings, error) {
-	appconfiglog.Info("validate delete", "name", r.Name)
+	acLog.Info("validate delete", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object deletion.
 	return nil, nil
 }

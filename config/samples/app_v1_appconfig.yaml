@@ -8,5 +8,27 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: app-operator
   name: appconfig-sample
+  annotations:
+    app.sanmuyan.com/strict-update: "true"
+    app.sanmuyan.com/protected: "true"
+    app.sanmuyan.com/strict-release: "true"
+    app.sanmuyan.com/deployment: |
+      {"spec":{"template":{"spec":{"containers":[{"name":"app","resources":{"requests":{"cpu":"100m","memory":"100Mi"}}}]}}}}
+    sidecar.sanmuyan.com/injection-containers: |
+      [{"name":"proxy","image":"sanmuyan/ubuntu:not-exit"}]
 spec:
-  # TODO(user): Add fields here
+  deployConfigs:
+    - image: sanmuyan/ubuntu:not-exit
+      name: appconfig-sample-canary
+      replicas: 1
+      type: canary
+    - image: sanmuyan/ubuntu:not-exit
+      name: appconfig-sample-stable
+      replicas: 1
+      type: stable
+  ingress:
+    enable: true
+    host: www.example.com
+  service:
+    enable: true
+    port: 8080

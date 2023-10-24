@@ -1,0 +1,50 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+- apiGroups:
+  - '*'
+  resources:
+  - deployments
+  verbs:
+  - '*'
+- apiGroups:
+  - '*'
+  resources:
+  - ingresses
+  verbs:
+  - '*'
+- apiGroups:
+  - '*'
+  resources:
+  - services
+  verbs:
+  - '*'
+- apiGroups:
+  - app.sanmuyan.com
+  resources:
+  - appconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - app.sanmuyan.com
+  resources:
+  - appconfigs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - app.sanmuyan.com
+  resources:
+  - appconfigs/status
+  verbs:
+  - get
+  - patch
+  - update

@@ -17,11 +17,29 @@ limitations under the License.
 package v1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+
+type AppService struct {
+	Enable bool  `json:"enable"`
+	Port   int32 `json:"port"`
+}
+
+type DeployConfig struct {
+	Name     string     `json:"name"`
+	Image    string     `json:"image"`
+	Replicas *int32     `json:"replicas"`
+	Type     DeployType `json:"type"`
+}
+
+type AppIngress struct {
+	Enable bool   `json:"enable"`
+	Host   string `json:"host"`
+}
 
 // AppConfigSpec defines the desired state of AppConfig
 type AppConfigSpec struct {
@@ -29,13 +47,25 @@ type AppConfigSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of AppConfig. Edit appconfig_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Ingress       AppIngress     `json:"ingress,omitempty"`
+	Service       AppService     `json:"service,omitempty"`
+	DeployConfigs []DeployConfig `json:"deployConfigs"`
+	Paused        bool           `json:"paused,omitempty"`
+}
+
+type DeployStatus struct {
+	AvailableStatus   corev1.ConditionStatus `json:"availableStatus"`
+	ProgressingStatus corev1.ConditionStatus `json:"progressingStatus"`
+	AvailableReplicas int32                  `json:"availableReplicas"`
+	Type              DeployType             `json:"type"`
 }
 
 // AppConfigStatus defines the observed state of AppConfig
 type AppConfigStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	DeployStatus      []DeployStatus `json:"deployStatus"`
+	AvailableReplicas int32          `json:"availableReplicas"`
 }
 
 //+kubebuilder:object:root=true

@@ -1,0 +1,120 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.13.0
+  name: appconfigs.app.sanmuyan.com
+spec:
+  group: app.sanmuyan.com
+  names:
+    kind: AppConfig
+    listKind: AppConfigList
+    plural: appconfigs
+    singular: appconfig
+  scope: Namespaced
+  versions:
+  - name: v1
+    schema:
+      openAPIV3Schema:
+        description: AppConfig is the Schema for the appconfigs API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: AppConfigSpec defines the desired state of AppConfig
+            properties:
+              deployConfigs:
+                items:
+                  properties:
+                    image:
+                      type: string
+                    name:
+                      type: string
+                    replicas:
+                      format: int32
+                      type: integer
+                    type:
+                      type: string
+                  required:
+                  - image
+                  - name
+                  - replicas
+                  - type
+                  type: object
+                type: array
+              ingress:
+                description: Foo is an example field of AppConfig. Edit appconfig_types.go
+                  to remove/update
+                properties:
+                  enable:
+                    type: boolean
+                  host:
+                    type: string
+                required:
+                - enable
+                - host
+                type: object
+              paused:
+                type: boolean
+              service:
+                properties:
+                  enable:
+                    type: boolean
+                  port:
+                    format: int32
+                    type: integer
+                required:
+                - enable
+                - port
+                type: object
+            required:
+            - deployConfigs
+            type: object
+          status:
+            description: AppConfigStatus defines the observed state of AppConfig
+            properties:
+              availableReplicas:
+                format: int32
+                type: integer
+              deployStatus:
+                description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                  of cluster Important: Run "make" to regenerate code after modifying
+                  this file'
+                items:
+                  properties:
+                    availableReplicas:
+                      format: int32
+                      type: integer
+                    availableStatus:
+                      type: string
+                    progressingStatus:
+                      type: string
+                    type:
+                      type: string
+                  required:
+                  - availableReplicas
+                  - availableStatus
+                  - progressingStatus
+                  - type
+                  type: object
+                type: array
+            required:
+            - availableReplicas
+            - deployStatus
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

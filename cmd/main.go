@@ -19,6 +19,8 @@ package main
 import (
 	"flag"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -102,6 +104,14 @@ func main() {
 			os.Exit(1)
 		}
 	}
+
+	// 手动注册 webhook
+	mgr.GetWebhookServer().Register("/mutate-v1-pod",
+		&webhook.Admission{Handler: &appv1.PodAnnotator{
+			Client:  mgr.GetClient(),
+			Decoder: admission.NewDecoder(runtime.NewScheme()),
+		}})
+
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
