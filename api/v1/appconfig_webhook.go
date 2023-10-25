@@ -67,11 +67,11 @@ func (r *AppConfig) ValidateUpdate(old runtime.Object) (admission.Warnings, erro
 	acLog.Info("validate update", "name", r.Name)
 
 	var errList field.ErrorList
-	if !controllerutil.ContainsFinalizer(r, FinalizerAppConfigs) {
-		if util.GetAnnotation(r, AnnotationProtected) == TureValue {
-			errList = append(errList, field.Invalid(field.NewPath("annotations"), AnnotationProtected, "cannot delete protected resources"))
+	if !controllerutil.ContainsFinalizer(r, AppConfigFinalizer) {
+		if util.GetAnnotation(r, ProtectedAnnotation) == TureValue {
+			errList = append(errList, field.Invalid(field.NewPath("annotations"), ProtectedAnnotation, DeleteProtectedMessage))
 			return nil, apierr.NewInvalid(
-				schema.GroupKind{Group: "app.sanmuyan.com", Kind: "AppConfigs"}, r.Name, errList)
+				schema.GroupKind{Group: "app.sanmuyan.com", Kind: "AppConfig"}, r.Name, errList)
 		}
 	}
 
@@ -79,7 +79,7 @@ func (r *AppConfig) ValidateUpdate(old runtime.Object) (admission.Warnings, erro
 		if dc.Type != StableDeploy && dc.Type != CanaryDeploy {
 			errList = append(errList, field.Invalid(field.NewPath("spec", "deployConfigs", "type"), dc.Type, "invalid type"))
 			return nil, apierr.NewInvalid(
-				schema.GroupKind{Group: "app.sanmuyan.com", Kind: "AppConfigs"}, r.Name, errList)
+				schema.GroupKind{Group: "app.sanmuyan.com", Kind: "AppConfig"}, r.Name, errList)
 		}
 	}
 	return nil, nil

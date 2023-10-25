@@ -28,7 +28,7 @@ func (a *PodAnnotator) Handle(ctx context.Context, req admission.Request) admiss
 	}
 
 	for k, v := range pod.GetAnnotations() {
-		if k == AnnotationContainersInjection {
+		if k == ContainersInjectionAnnotation {
 			var containers []corev1.Container
 			err := json.Unmarshal([]byte(v), &containers)
 			if err != nil {
