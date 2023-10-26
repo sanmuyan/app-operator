@@ -9,10 +9,6 @@ import (
 	"strings"
 )
 
-func addCreatedByLabel(labels map[string]string) {
-	labels["app.kubernetes.io/created-by"] = "app-operator"
-}
-
 func getDeployStatus(t appv1.DeployType, status []appv1.DeployStatus) (appv1.DeployStatus, bool) {
 	for _, s := range status {
 		if s.Type == t {

@@ -21,7 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"sanmuyan.com/app-operator/pkg/util"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -68,7 +67,7 @@ func (r *AppConfig) ValidateUpdate(old runtime.Object) (admission.Warnings, erro
 
 	var errList field.ErrorList
 	if !controllerutil.ContainsFinalizer(r, AppConfigFinalizer) {
-		if util.GetAnnotation(r, ProtectedAnnotation) == TureValue {
+		if GetAnnotation(r, ProtectedAnnotation) == TureValue {
 			errList = append(errList, field.Invalid(field.NewPath("annotations"), ProtectedAnnotation, DeleteProtectedMessage))
 			return nil, apierr.NewInvalid(
 				schema.GroupKind{Group: "app.sanmuyan.com", Kind: "AppConfig"}, r.Name, errList)

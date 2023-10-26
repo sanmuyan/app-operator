@@ -11,11 +11,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	appv1 "sanmuyan.com/app-operator/api/v1"
-	"sanmuyan.com/app-operator/pkg/util"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"strings"
 )
 
 func (r *AppConfigReconciler) updateFinalizer(ctx context.Context, ac *appv1.AppConfig) error {
@@ -53,26 +51,27 @@ func (r *AppConfigReconciler) updateStatus(ctx context.Context, ac *appv1.AppCon
 	}
 	for _, dc := range ac.Spec.DeployConfigs {
 		status := appv1.DeployStatus{}
-		dm, ok := dmMap[dc.Name]
-		if !ok {
-			continue
-		}
-		status.AvailableReplicas = dm.Status.AvailableReplicas
-		ac.Status.AvailableReplicas += dm.Status.AvailableReplicas
 		status.Type = dc.Type
-		statusAvailable, ok := getCondition(appsv1.DeploymentAvailable, dm.Status.Conditions)
+		dm, ok := dmMap[dc.Name]
 		if ok {
-			status.AvailableStatus = statusAvailable.Status
-		}
+			status.AvailableReplicas = dm.Status.AvailableReplicas
+			ac.Status.AvailableReplicas += dm.Status.AvailableReplicas
+			statusAvailable, ok := getCondition(appsv1.DeploymentAvailable, dm.Status.Conditions)
+			if ok {
+				status.AvailableStatus = statusAvailable.Status
+			}
 
-		statusProgressing, ok := getCondition(appsv1.DeploymentProgressing, dm.Status.Conditions)
-		if ok {
-			status.ProgressingStatus = statusProgressing.Status
+			statusProgressing, ok := getCondition(appsv1.DeploymentProgressing, dm.Status.Conditions)
+			if ok {
+				status.ProgressingStatus = statusProgressing.Status
+			}
+		} else {
+			status.AvailableReplicas = 0
+			status.ProgressingStatus = corev1.ConditionUnknown
+			status.AvailableStatus = corev1.ConditionUnknown
 		}
-
 		ac.Status.DeployStatus = append(ac.Status.DeployStatus, status)
 	}
-
 	return r.Status().Update(ctx, ac)
 }
 
@@ -87,7 +86,7 @@ func (r *AppConfigReconciler) updateDeploy(ctx context.Context, req ctrl.Request
 	for _, dc := range ac.Spec.DeployConfigs {
 		acLog.V(1).Info("updating deployConfig", "namespace", req.Namespace, "name", dc.Name)
 		req.MarshalLog()
-		if util.GetAnnotation(ac, appv1.StrictReleaseAnnotation) == appv1.TureValue {
+		if appv1.GetAnnotation(ac, appv1.StrictReleaseAnnotation) == appv1.TureValue {
 			// 开启严格发布模式后，canary 部署失败时，stable 不允许更新
 			if dc.Type == appv1.StableDeploy {
 				canaryStatus, ok := getDeployStatus(appv1.CanaryDeploy, ac.Status.DeployStatus)
@@ -101,9 +100,9 @@ func (r *AppConfigReconciler) updateDeploy(ctx context.Context, req ctrl.Request
 
 		dm, ok := dmMap[dc.Name]
 		if ok {
-			if util.GetAnnotation(ac, appv1.StrictUpdateAnnotation) == appv1.TureValue {
+			if appv1.GetAnnotation(ac, appv1.StrictUpdateAnnotation) == appv1.TureValue {
 				// 开启严格更新模式后 image replicas 都没有变化的情况下暂停更新
-				appContainer, ok := getContainer(appContainerName, dm.Spec.Template.Spec.Containers)
+				appContainer, ok := getContainer(appName, dm.Spec.Template.Spec.Containers)
 				if ok {
 					if appContainer.Image == dc.Image && *dm.Spec.Replicas == *dc.Replicas {
 						acLog.V(1).Info("image replicas no changes, skip update", "namespace", req.Namespace, "name", req.Name)
@@ -150,17 +149,36 @@ func (r *AppConfigReconciler) updateDeploy(ctx context.Context, req ctrl.Request
 
 func (r *AppConfigReconciler) setIngress(ingress *networkingv1.Ingress, ac *appv1.AppConfig, dc *appv1.DeployConfig) controllerutil.MutateFn {
 	return func() error {
+		ingress.Annotations = make(map[string]string)
 		if dc.Type == appv1.CanaryDeploy {
-			canaryStatus, ok := getDeployStatus(appv1.CanaryDeploy, ac.Status.DeployStatus)
-			if ok {
-				weight := float32(canaryStatus.AvailableReplicas) / float32(ac.Status.AvailableReplicas) * 100
-				ingress.Annotations = make(map[string]string)
-				ingress.Annotations["nginx.ingress.kubernetes.io/canary"] = "true"
-				ingress.Annotations["nginx.ingress.kubernetes.io/canary-weight"] = fmt.Sprint(int32(weight))
+			if appv1.GetAnnotation(ac, appv1.CanaryIngressAnnotation) == appv1.TureValue {
+				appv1.AddAnnotation(ingress, appv1.CanaryIngressAnnotation, appv1.TureValue)
+			} else {
+				appv1.AddOtherAnnotation(ingress, appv1.NginxIngressCanaryAnnotation, appv1.FalseValue)
+				appv1.AddOtherAnnotation(ingress, appv1.NginxIngressWeightAnnotation, "0")
+			}
+			if appv1.GetAnnotation(ingress, appv1.CanaryRollingWeightAnnotation) == appv1.TureValue {
+				canaryStatus, ok := getDeployStatus(appv1.CanaryDeploy, ac.Status.DeployStatus)
+				if ok {
+					weight := float32(canaryStatus.AvailableReplicas) / float32(ac.Status.AvailableReplicas) * 100
+					appv1.AddOtherAnnotation(ingress, appv1.NginxIngressWeightAnnotation, fmt.Sprint(int32(weight)))
+				}
+			}
+		}
+		if annotations := appv1.GetAnnotation(ac, appv1.IngressAnnotationsAnnotation); annotations != appv1.NilValue {
+			var annotationsList []map[string]string
+			err := json.Unmarshal([]byte(annotations), &annotationsList)
+			if err != nil {
+				return err
+			}
+			for _, annotation := range annotationsList {
+				for k, v := range annotation {
+					appv1.AddOtherAnnotation(ingress, k, v)
+				}
 			}
 		}
 		ingress.Labels = make(map[string]string)
-		addCreatedByLabel(ingress.Labels)
+		appv1.AddOtherLabel(ingress, appv1.CreatedByLabel, appv1.OperatorName)
 		pathType := new(networkingv1.PathType)
 		*pathType = networkingv1.PathTypeImplementationSpecific
 		ingress.Spec.Rules = []networkingv1.IngressRule{
@@ -194,12 +212,12 @@ func (r *AppConfigReconciler) setIngress(ingress *networkingv1.Ingress, ac *appv
 func (r *AppConfigReconciler) setSvc(svc *corev1.Service, ac *appv1.AppConfig, dc *appv1.DeployConfig) controllerutil.MutateFn {
 	return func() error {
 		svc.Labels = make(map[string]string)
-		addCreatedByLabel(svc.Labels)
+		appv1.AddOtherLabel(svc, appv1.CreatedByLabel, appv1.OperatorName)
 		svc.Spec.Selector = make(map[string]string)
-		svc.Spec.Selector[appContainerName] = dc.Name
+		svc.Spec.Selector[appName] = dc.Name
 		svc.Spec.Ports = []corev1.ServicePort{
 			{
-				Name:       appContainerName,
+				Name:       appName,
 				Port:       ac.Spec.Service.Port,
 				TargetPort: intstr.FromInt32(ac.Spec.Service.Port),
 			},
@@ -221,42 +239,41 @@ func (r *AppConfigReconciler) setDeployment(dm *appsv1.Deployment, ac *appv1.App
 
 		// 标签设置
 		dm.Labels = make(map[string]string)
-		addCreatedByLabel(dm.Labels)
-		dm.Labels[appContainerName] = dm.Name
+		appv1.AddOtherLabel(dm, appName, dc.Name)
+		appv1.AddOtherLabel(dm, appv1.CreatedByLabel, appv1.OperatorName)
 
 		dm.Spec.Template.Labels = make(map[string]string)
-		dm.Spec.Template.Labels[appContainerName] = dm.Name
-		addCreatedByLabel(dm.Spec.Template.Labels)
+		appv1.AddOtherLabel(&dm.Spec.Template, appv1.AppName, dc.Name)
+
 		dm.Spec.Selector = &metav1.LabelSelector{
-			MatchLabels: dm.Spec.Template.Labels,
+			MatchLabels: make(map[string]string),
 		}
+		dm.Spec.Selector.MatchLabels[appName] = dc.Name
 
 		// 设置注解
 		dm.Spec.Template.Annotations = make(map[string]string)
+		if v := appv1.GetAnnotation(ac, appv1.ContainersInjectionAnnotation); v != appv1.NilValue {
+			appv1.AddAnnotation(&dm.Spec.Template, appv1.ContainersInjectionAnnotation, v)
+			appv1.AddLabel(&dm.Spec.Template, appv1.InjectionLabel, appv1.TureValue)
+		}
 
-		for k, v := range ac.Annotations {
-			if strings.HasPrefix(k, appv1.SidecarPrefix) {
-				dm.Spec.Template.Annotations[k] = v
-				dm.Spec.Template.Labels[appv1.SidecarPrefix] = "enable"
-			}
-			if k == appv1.DeploymentConfigAnnotation {
-				acLog.V(1).Info("loading deployment annotation", "namespace", dm.Namespace, "name", dm.Name)
-				err := json.Unmarshal([]byte(v), dm)
-				if err != nil {
-					return err
-				}
+		if v := appv1.GetAnnotation(ac, appv1.DeploymentConfigAnnotation); v != appv1.NilValue {
+			acLog.V(1).Info("loading deployment annotation", "namespace", dm.Namespace, "name", dm.Name)
+			err := json.Unmarshal([]byte(v), dm)
+			if err != nil {
+				return err
 			}
 		}
 
 		// 设置容器
 		dm.Spec.Replicas = dc.Replicas
-		if _, ok := getContainer(appContainerName, dm.Spec.Template.Spec.Containers); !ok {
+		if _, ok := getContainer(appName, dm.Spec.Template.Spec.Containers); !ok {
 			dm.Spec.Template.Spec.Containers = append(dm.Spec.Template.Spec.Containers, corev1.Container{
-				Name:  appContainerName,
+				Name:  appName,
 				Image: dc.Image,
 			})
 		}
-		setContainerImage(appContainerName, dc.Image, dm.Spec.Template.Spec.Containers)
+		setContainerImage(appName, dc.Image, dm.Spec.Template.Spec.Containers)
 
 		dm.ResourceVersion = ""
 		dm.SetName(dc.Name)

@@ -18,6 +18,6 @@ var (
 )
 
 const (
-	apiKind          = "AppConfig"
-	appContainerName = "app"
+	apiKind = appv1.ApiKind
+	appName = appv1.AppName
 )

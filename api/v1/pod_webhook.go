@@ -27,15 +27,13 @@ func (a *PodAnnotator) Handle(ctx context.Context, req admission.Request) admiss
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
-	for k, v := range pod.GetAnnotations() {
-		if k == ContainersInjectionAnnotation {
-			var containers []corev1.Container
-			err := json.Unmarshal([]byte(v), &containers)
-			if err != nil {
-				return admission.Errored(http.StatusBadRequest, err)
-			}
-			pod.Spec.Containers = append(pod.Spec.Containers, containers...)
+	if v := GetAnnotation(pod, ContainersInjectionAnnotation); v != NilValue {
+		var containers []corev1.Container
+		err := json.Unmarshal([]byte(v), &containers)
+		if err != nil {
+			return admission.Errored(http.StatusBadRequest, err)
 		}
+		pod.Spec.Containers = append(pod.Spec.Containers, containers...)
 	}
 
 	marshaledPod, err := json.Marshal(pod)

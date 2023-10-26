@@ -7,7 +7,7 @@ webhooks:
   - name: mpod.kb.io
     objectSelector:
       matchExpressions:
-        - key: sidecar.sanmuyan.com/injection
+        - key: app.sanmuyan.com/injection
           operator: In
           values:
-            - "enable"
+            - "true"

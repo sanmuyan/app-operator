@@ -9,13 +9,17 @@ metadata:
     app.kubernetes.io/created-by: app-operator
   name: appconfig-sample
   annotations:
+    app.sanmuyan.com/canary-ingress: "false"
+    app.sanmuyan.com/canary-rolling-weight: "false"
     app.sanmuyan.com/strict-update: "false"
     app.sanmuyan.com/protected: "false"
     app.sanmuyan.com/strict-release: "false"
     app.sanmuyan.com/deployment-config: |
       {"spec":{"template":{"spec":{"containers":[{"name":"app","resources":{"requests":{"cpu":"100m","memory":"100Mi"}}}]}}}}
-    sidecar.sanmuyan.com/injection-containers: |
+    app.sanmuyan.com/injection-containers: |
       [{"name":"proxy","image":"sanmuyan/ubuntu:not-exit"}]
+    app.sanmuyan.com/ingress-annotations: |
+      [{"nginx.ingress.kubernetes.io/ssl-redirect": "true"},{"nginx.ingress.kubernetes.io/proxy-body-size": "256m"}]
 spec:
   deployConfigs:
     - image: sanmuyan/ubuntu:not-exit
