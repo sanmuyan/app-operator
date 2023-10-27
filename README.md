@@ -111,3 +111,19 @@ server {
     }
 }    
 ```
+
+## AppConfig
+
+### 功能介绍
+
+- 支持管理 `Deployment` `Service` `Ingress`
+- 支持灰度发布，自动切换灰度权重
+- 支持容器注入
+- 支持 `Deployment` 全局配置模板
+- 支持 `Deployment` 单独注解配置
+
+### 配置示例
+
+```shell
+kubectl -f apply config/samples/app_v1_appconfig.yaml
+```

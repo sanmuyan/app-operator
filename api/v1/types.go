@@ -21,11 +21,13 @@ const (
 	AppConfigFinalizer = LabelPrefix + "/protected"
 )
 
+// 标签列表
 const (
 	InjectionLabel = "injection"
 	CreatedByLabel = "app.kubernetes.io/created-by"
 )
 
+// 注解列表
 const (
 	// ContainersInjectionAnnotation 注入容器数组，值应该是 JSON
 	ContainersInjectionAnnotation = "injection-containers"
@@ -37,7 +39,7 @@ const (
 	DeploymentConfigAnnotation = "deployment-config"
 	// StrictReleaseAnnotation 严格发布模式
 	StrictReleaseAnnotation = "strict-release"
-	// CanaryIngressAnnotation 是否为 canary ingress
+	// CanaryIngressAnnotation 启用 canary ingress
 	CanaryIngressAnnotation = "canary-ingress"
 	// CanaryRollingWeightAnnotation 在发布中实时切换 canary ingress 的权重
 	CanaryRollingWeightAnnotation = "canary-rolling-weight"
@@ -45,6 +47,7 @@ const (
 	IngressAnnotationsAnnotation = "ingress-annotations"
 )
 
+// 消息列表
 const (
 	DeleteProtectedMessage  = "cannot delete protected resources"
 	VersionNotLatestMessage = "latest version and try again"
